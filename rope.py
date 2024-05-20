@@ -48,7 +48,7 @@ def apply_rotary_emb(
         Tuple[torch.Tensor, torch.Tensor]: Tuple of modified query tensor and key tensor with rotary embeddings.
     """
 
-    _, seqlen, _, _ = query.shape
+    batch_size, seqlen, n_local_heads, _ = query.shape
     device = query.device
     # todo
     #
@@ -67,32 +67,29 @@ def apply_rotary_emb(
     # Then, combine these trigonometric values with the tensors query_real, query_imag,
     # key_real, and key_imag.
 
-    batch_size, seqlen, n_local_heads, _ = query.shape
-
-    inv_freq = theta ** (-2 * (torch.arange(1, head_dim / 2 + 1) - 1) / head_dim)
+    inv_freq = theta ** (-2 * (torch.arange(head_dim // 2) / head_dim))
     inv_freq = inv_freq.unsqueeze(0).unsqueeze(0).unsqueeze(0).expand(batch_size, seqlen, n_local_heads, -1)
 
     # Создаем relative_position_matrix с размерностью (batch_size, n_local_heads, seqlen, 1)
-    relative_position_matrix = torch.arange(seqlen) + 1
-    relative_position_matrix = relative_position_matrix.unsqueeze(0).unsqueeze(-1).unsqueeze(-1).expand(batch_size, seqlen, n_local_heads, 1)
-    # print(inv_freq)
-    # print(relative_position_matrix)
-    # sinusoid_inp = torch.einsum("m,d->md", relative_position_matrix, inv_freq)
-    # print(sinusoid_inp)
-    # Вычисляем query_emb
-    print(inv_freq * relative_position_matrix)
+    relative_position_matrix = torch.arange(seqlen)
+    relative_position_matrix = relative_position_matrix.unsqueeze(0).unsqueeze(-1).unsqueeze(-1).expand(batch_size, seqlen, 1, head_dim // 2)
+
     emb_real = torch.cos(inv_freq * relative_position_matrix)
     emb_imag = torch.sin(inv_freq * relative_position_matrix)
-    # emb_real = torch.cos(sinusoid_inp)
-    # emb_imag = torch.sin(sinusoid_inp)
-    # print(emb_real.shape)
-    # print(query_real.shape)
-    # print(key.shape)
-    # print(emb_real * query_real)
 
-    query_out = torch.cat([query_real * emb_real - query_imag * emb_imag,
-                    query_real * emb_imag + query_imag * emb_real], dim=-1)
-    key_out = torch.cat([key_real * emb_real - key_imag * emb_imag,
-                    key_real * emb_imag + key_imag * emb_real], dim=-1)
+    query_rotated_real = query_real * emb_real - query_imag * emb_imag
+    query_rotated_imag = query_real * emb_imag + query_imag * emb_real
+
+    query_out = torch.zeros_like(query)
+    query_out[..., 0::2] = query_rotated_real
+    query_out[..., 1::2] = query_rotated_imag
+
+    key_rotated_real = key_real * emb_real - key_imag * emb_imag
+    key_rotated_imag = key_real * emb_imag + key_imag * emb_real
+
+    key_out = torch.zeros_like(query)
+    key_out[..., 0::2] = key_rotated_real
+    key_out[..., 1::2] = key_rotated_imag
+
     # Return the rotary position embeddings for the query and key tensors
     return query_out, key_out
