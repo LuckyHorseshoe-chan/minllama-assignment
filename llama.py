@@ -52,7 +52,7 @@ class RMSNorm(torch.nn.Module):
         sum_squared = torch.sum(x ** 2, dim=dim - 1, keepdim=True)
         
         # Вычисляем длину векторов (количество элементов в векторе)
-        vector_length = torch.tensor(x.shape[-1], dtype=torch.float32, device=x.device)
+        vector_length = x.shape[-1]
         
         # Вычисляем нормализующий множитель для каждого вектора
         norm = torch.sqrt(sum_squared / vector_length + self.eps)
@@ -216,12 +216,9 @@ class LlamaLayer(nn.Module):
            output of the feed-forward network
         '''
         # todo
-        att_input = self.attention_norm(x)
-        att_output = self.attention(att_input)
-        att_output += att_input
-        ff_input = self.ffn_norm(att_output)
-        ff_output = self.feed_forward(ff_input)
-        ff_output += att_output
+        att_output = x + self.attention(self.attention_norm(x))
+        ff_output = att_output + self.feed_forward(self.ffn_norm(att_output))
+        
         return ff_output
 
 class Llama(LlamaPreTrainedModel):
