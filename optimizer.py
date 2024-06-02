@@ -74,6 +74,5 @@ class AdamW(Optimizer):
                 # Please note that the learning rate should be incorporated into this update.
                 if weight_decay > 0.0:
                     p.data -= alpha * weight_decay * p.data
-                # print(p.grad.data)
 
         return loss
