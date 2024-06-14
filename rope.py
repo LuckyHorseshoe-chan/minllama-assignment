@@ -74,8 +74,8 @@ def apply_rotary_emb(
     relative_position_matrix = torch.arange(seqlen)
     relative_position_matrix = relative_position_matrix.unsqueeze(0).unsqueeze(-1).unsqueeze(-1).expand(batch_size, seqlen, 1, head_dim // 2)
 
-    emb_real = torch.cos(inv_freq * relative_position_matrix)
-    emb_imag = torch.sin(inv_freq * relative_position_matrix)
+    emb_real = torch.cos(inv_freq * relative_position_matrix).to(device)
+    emb_imag = torch.sin(inv_freq * relative_position_matrix).to(device)
 
     query_rotated_real = query_real * emb_real - query_imag * emb_imag
     query_rotated_imag = query_real * emb_imag + query_imag * emb_real
